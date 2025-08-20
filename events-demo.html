@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Manager - Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto p-6 max-w-4xl">
+        <div class="space-y-6">
+            <!-- Header -->
+            <div class="text-center space-y-2">
+                <h1 class="text-3xl font-bold tracking-tight text-gray-900">Event Manager</h1>
+                <p class="text-gray-600">Add, manage, and track your events</p>
+            </div>
+
+            <!-- Add Event Form -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h2 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                        <span class="text-blue-500">+</span>
+                        Add New Event
+                    </h2>
+                </div>
+                <div class="p-6">
+                    <form id="eventForm" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="space-y-2">
+                                <label for="eventName" class="block text-sm font-medium text-gray-700">
+                                    Event Name
+                                </label>
+                                <input
+                                    id="eventName"
+                                    type="text"
+                                    placeholder="Enter event name"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    required
+                                />
+                                <p id="nameError" class="text-sm text-red-500 hidden"></p>
+                            </div>
+                            <div class="space-y-2">
+                                <label for="eventDate" class="block text-sm font-medium text-gray-700">
+                                    Date
+                                </label>
+                                <input
+                                    id="eventDate"
+                                    type="date"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    required
+                                />
+                                <p id="dateError" class="text-sm text-red-500 hidden"></p>
+                            </div>
+                        </div>
+                        <button
+                            type="submit"
+                            class="w-full md:w-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                        >
+                            Add Event
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Search -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <span class="text-gray-400">🔍</span>
+                    </div>
+                    <input
+                        id="searchInput"
+                        type="text"
+                        placeholder="Search events by name..."
+                        class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                </div>
+            </div>
+
+            <!-- Events List -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h2 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                        <span class="text-blue-500">📅</span>
+                        Events (<span id="eventCount">0</span>)
+                    </h2>
+                </div>
+                <div class="p-6">
+                    <div id="eventsList" class="space-y-3">
+                        <div id="emptyState" class="text-center py-8 text-gray-500">
+                            No events yet. Add your first event above!
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Event storage and management
+        class EventManager {
+            constructor() {
+                this.events = this.loadEvents();
+                this.init();
+            }
+
+            loadEvents() {
+                try {
+                    const stored = localStorage.getItem('events');
+                    return stored ? JSON.parse(stored) : [];
+                } catch (error) {
+                    console.error('Error loading events:', error);
+                    return [];
+                }
+            }
+
+            saveEvents() {
+                try {
+                    localStorage.setItem('events', JSON.stringify(this.events));
+                } catch (error) {
+                    console.error('Error saving events:', error);
+                }
+            }
+
+            addEvent(name, date) {
+                const event = {
+                    id: Date.now().toString(),
+                    name: name.trim(),
+                    date: date
+                };
+                this.events.push(event);
+                this.saveEvents();
+                this.renderEvents();
+            }
+
+            deleteEvent(id) {
+                this.events = this.events.filter(event => event.id !== id);
+                this.saveEvents();
+                this.renderEvents();
+            }
+
+            searchEvents(searchTerm) {
+                const filtered = this.events.filter(event =>
+                    event.name.toLowerCase().includes(searchTerm.toLowerCase())
+                );
+                this.renderEvents(filtered);
+            }
+
+            formatDate(dateString) {
+                const date = new Date(dateString);
+                return date.toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+            }
+
+            renderEvents(eventsToRender = null) {
+                const eventsList = document.getElementById('eventsList');
+                const eventCount = document.getElementById('eventCount');
+                const emptyState = document.getElementById('emptyState');
+                const searchInput = document.getElementById('searchInput');
+                
+                const events = eventsToRender || this.events;
+                eventCount.textContent = events.length;
+
+                if (events.length === 0) {
+                    const message = searchInput.value.trim() 
+                        ? 'No events found matching your search.' 
+                        : 'No events yet. Add your first event above!';
+                    eventsList.innerHTML = `<div class="text-center py-8 text-gray-500">${message}</div>`;
+                    return;
+                }
+
+                const eventsHTML = events.map(event => `
+                    <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                        <div class="flex-1">
+                            <h3 class="font-medium text-gray-900">${event.name}</h3>
+                            <p class="text-sm text-gray-600">${this.formatDate(event.date)}</p>
+                        </div>
+                        <button
+                            onclick="eventManager.deleteEvent('${event.id}')"
+                            class="px-3 py-1 text-red-600 border border-red-300 rounded-md hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
+                        >
+                            🗑️ Delete
+                        </button>
+                    </div>
+                `).join('');
+
+                eventsList.innerHTML = eventsHTML;
+            }
+
+            init() {
+                // Form submission
+                const form = document.getElementById('eventForm');
+                form.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    
+                    const nameInput = document.getElementById('eventName');
+                    const dateInput = document.getElementById('eventDate');
+                    const nameError = document.getElementById('nameError');
+                    const dateError = document.getElementById('dateError');
+                    
+                    // Clear previous errors
+                    nameError.classList.add('hidden');
+                    dateError.classList.add('hidden');
+                    nameInput.classList.remove('border-red-500');
+                    dateInput.classList.remove('border-red-500');
+                    
+                    let hasErrors = false;
+                    
+                    // Validation
+                    if (!nameInput.value.trim()) {
+                        nameError.textContent = 'Event name is required';
+                        nameError.classList.remove('hidden');
+                        nameInput.classList.add('border-red-500');
+                        hasErrors = true;
+                    }
+                    
+                    if (!dateInput.value) {
+                        dateError.textContent = 'Date is required';
+                        dateError.classList.remove('hidden');
+                        dateInput.classList.add('border-red-500');
+                        hasErrors = true;
+                    }
+                    
+                    if (!hasErrors) {
+                        this.addEvent(nameInput.value, dateInput.value);
+                        nameInput.value = '';
+                        dateInput.value = '';
+                    }
+                });
+
+                // Search functionality
+                const searchInput = document.getElementById('searchInput');
+                searchInput.addEventListener('input', (e) => {
+                    this.searchEvents(e.target.value);
+                });
+
+                // Initial render
+                this.renderEvents();
+            }
+        }
+
+        // Initialize the event manager
+        const eventManager = new EventManager();
+    </script>
+</body>
+</html>
